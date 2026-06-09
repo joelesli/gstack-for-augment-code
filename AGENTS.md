@@ -1,79 +1,42 @@
-# gstack for Augment Code
+# gstack for Augment Code — agent guidelines
 
-## Available commands
-
-| Command | Specialist | Jira fetch | Writes to |
-|---------|-----------|-----------|-----------|
-| `/gstack:office-hours <KEY>` | YC Partner | ✅ yes | `.augment/features/<KEY>/office-hours.md` |
-| `/gstack:plan-ceo-review <KEY>` | CEO/Founder | ✅ yes | `.augment/features/<KEY>/plan-ceo-review.md` |
-| `/gstack:plan-eng-review <KEY>` | Eng Manager | ✅ yes | `.augment/features/<KEY>/plan-eng-review.md` + `test-plan.md` |
-| `/gstack:autoplan <KEY>` | Review Autopilot | ✅ yes | All three plan files |
-| `/gstack:review <KEY>` | Staff Engineer | label only | `.augment/features/<KEY>/review.md` |
-| `/gstack:investigate <KEY> <symptom>` | Debugger | label only | `.augment/features/<KEY>/investigate.md` |
-| `/gstack:qa <KEY>` | QA Lead | label only | `.augment/features/<KEY>/qa-report.md` |
-| `/gstack:cso <KEY>` | Security Officer | label only | `.augment/features/<KEY>/cso-report.md` |
-| `/gstack:ship <KEY>` | Release Engineer | label only | `.augment/features/<KEY>/ship.md` |
-| `/gstack:document-release <KEY>` | Tech Writer | label only | `.augment/features/<KEY>/document-release.md` |
-| `/gstack:retro <KEY>` | Eng Manager | label only | `.augment/features/<KEY>/retro.md` |
-| `/gstack:document <KEY>` | Narrator | label only | Confluence upsert (reads folder, writes nothing locally) |
-| `/gstack:careful` | Safety | — | session only |
-| `/gstack:freeze <path>` | Safety | — | session only |
-| `/gstack:guard <path>` | Safety | — | session only |
-| `/gstack:unfreeze` | Safety | — | session only |
+These rules apply whenever gstack commands are installed in this workspace.
 
 ## Feature folder
 
-Every command that accepts a Jira key reads from and writes to:
-```
-.augment/features/<JIRA-KEY>/
-```
+Working memory per ticket lives in `.augment/features/<JIRA-KEY>/` — gitignored, local, never committed. At the start of any gstack command, silently read the folder's existing files. Findings compound: an unresolved critical flagged in `review.md` stays alive in `qa` and gates `ship` until someone resolves it. Project-level learnings live in `.augment/learnings.md`; when a prior learning influences a finding, say "Prior learning applied: <key>".
 
-This folder is gitignored, local working memory, never committed. Each command is independent — run them in any order, they read whatever exists and skip what doesn't.
+## Voice
 
-Add to `.gitignore`:
-```
-.augment/features/
-```
+Lead with the point. Be concrete: files, methods, line numbers, commands, real numbers. Tie technical choices to user outcomes — what the user sees, waits for, loses, or gains. Direct about quality: bugs matter, edge cases matter, fix the whole thing, not the demo path. Builder talking to builder — never corporate, academic, or hype. No filler, no AI vocabulary (delve, robust, comprehensive, crucial, furthermore).
 
-## Proactive routing
+Good: "auth.ts:47 returns undefined when the session cookie expires. Users hit a white screen. Fix: null check + redirect to /login. Two lines."
+Bad: "I've identified a potential issue in the authentication flow that may cause problems under certain conditions."
 
-When the user's request matches a command's purpose, suggest it — but do not insist.
+## Automation contract
 
-- New feature idea / "should we build this?" → suggest `/gstack:office-hours <KEY>`
-- "What should the architecture look like?" → suggest `/gstack:plan-eng-review <KEY>`
-- Bug or "why is this broken?" → suggest `/gstack:investigate <KEY> <symptom>`
-- "Is this ready to ship?" → suggest `/gstack:review <KEY>` then `/gstack:qa <KEY>`
-- "Ship it" → suggest `/gstack:ship <KEY>`
-- "Security check" → suggest `/gstack:cso <KEY>`
-- "Write it up" / "document this" → suggest `/gstack:document <KEY>`
+Commands run to completion. Interactive + high-stakes decision (irreversible, scope-changing) → ask, one issue per question, with a recommendation and WHY. Unattended (cron, `auggie --print`, `auto` in args) → documented default + `## Decisions made without you` + `## Open questions` in the artifact. Never unattended: silent scope changes, posting to Jira/Confluence, destructive git operations.
 
-Do NOT suggest commands when the user gives a specific direct instruction.
+## Discipline
 
-## Discipline nudges
+- **Iron Law:** never fix a bug without confirming the root cause first.
+- **Completeness is cheap:** AI compresses implementation 10-100x; prefer the complete option (tests, edge cases, error paths) over the shortcut. Flag oceans, recommend complete lakes.
+- **Verify before asserting:** "handled elsewhere" requires reading and citing the handler; "pre-existing failure" requires proving it fails on the base branch.
+- **Bisectable commits**, staged by explicit filename — never `git add -A`. No debug output or commented-out code in commits.
+- **Search before building:** check for a framework built-in before rolling a custom solution.
+- **State your approach in one sentence** before heavy operations.
+- **Platform-agnostic:** read CLAUDE.md / AGENTS.md for test/build/deploy commands before detecting; persist newly-discovered commands back to the project's instructions file.
 
-**Think before heavy actions.** For complex operations, state your approach in one sentence before executing.
+## Proactive routing (suggest, don't insist)
 
-**Mark tasks complete individually.** Do not batch-complete a multi-step plan at the end.
-
-**Iron Law.** Never fix a bug without confirming the root cause first.
-
-**One commit per logical change.** Keep commits bisectable.
-
-**No debug output in commits.** Remove `System.out.println`, `Console.WriteLine`, commented-out code before committing.
-
-**Search before building.** If unsure whether something exists in the codebase, search first.
-
-## Feature folder awareness
-
-At the start of any command that receives a Jira key, silently check `.augment/features/<KEY>/` and read relevant prior session files. Prior decisions compound — if a race condition was flagged in `review.md` and not resolved, flag it again in `qa` and `ship`.
+New idea / "should we build this?" → `/gstack:office-hours <KEY>`. Vague ticket → `/gstack:spec <KEY>`. Scope/strategy → `/gstack:plan-ceo-review`. Architecture → `/gstack:plan-eng-review`. Full pipeline → `/gstack:autoplan`. Bug → `/gstack:investigate <KEY> <symptom>`. "Ready to ship?" → `/gstack:review` then `/gstack:qa`. "Ship it" → `/gstack:ship`. Security → `/gstack:cso`. "Write it up" → `/gstack:document`. Don't suggest when the user gives a specific direct instruction.
 
 ## Sprint order
 
 ```
-office-hours → plan-ceo-review → plan-eng-review
-    → [build] → review → investigate (if needed)
-    → qa → cso → ship → document-release
-    → gstack:document → retro
+office-hours → spec → autoplan (or plan-ceo/design/eng/devex individually)
+  → [build] → review → investigate (as needed) → qa → cso
+  → ship → document-release → document → retro
 ```
 
-Commands are independent — skip any step — but never skip `review` before `ship` without explicitly acknowledging it.
+Any step can be skipped — but never skip `review` before `ship` without acknowledging it.

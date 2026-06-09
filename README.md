@@ -1,100 +1,102 @@
-# gstack for Augment Code
+# gstack for Augment Code — v2
 
-A port of [Garry Tan's gstack](https://github.com/garrytan/gstack) as Augment Code
-commands. Every command accepts a Jira key, reads/writes a local feature folder
-`.augment/features/<KEY>/`, and a `gstack:document` command synthesises the folder
-into a Confluence page on demand.
+A high-fidelity port of [Garry Tan's gstack](https://github.com/garrytan/gstack) as Augment custom commands. Every command takes a **Jira key** as its parameter, reads/writes a local feature folder `.augment/features/<KEY>/`, and is designed **automation-first** so the whole stack runs under cron via `auggie`.
 
-![](gstack_for_augment_400.jpg)
+v2 replaces the first port with much deeper methodology: the scoring rubrics, severity taxonomies, gates, anti-skip rules, and voice of the original skills — adapted for Auggie (no browser binary, no Claude-Code hooks, Jira instead of plan files).
+
+![](./images/gstack_for_augment_400.jpg)
 
 ---
 
 ## Install
 
-### macOS / Linux
-
-**User-level install** (available in every project):
+**User-level** (all projects):
 ```bash
 cp -r gstack ~/.augment/commands/
 ```
 
-**Workspace-level install** (available only in one project):
+**Workspace-level** (one project, shareable with the team):
 ```bash
-cp -r gstack /path/to/your/project/.augment/commands/
+cp -r gstack /path/to/project/.augment/commands/
 ```
 
-### Windows
+Windows (PowerShell): `Copy-Item -Recurse gstack "$env:USERPROFILE\.augment\commands\"`
 
-**User-level install** (available in every project):
-
-PowerShell:
-```powershell
-Copy-Item -Recurse gstack "$env:USERPROFILE\.augment\commands\"
+**Guidelines (AGENTS.md):** this file is NOT a command and must stay out of the commands folder — anything in `.augment/commands/gstack/` becomes a slash command. Instead, copy it into the target project's root as `AGENTS.md` (or merge its sections into an existing one). Auggie reads it as workspace guidelines, which is what makes the feature-folder awareness, voice, and routing rules apply to every session — not just when a gstack command runs:
+```bash
+cp AGENTS.md /path/to/project/AGENTS.md   # or append to the existing file
 ```
 
-Command Prompt:
-```cmd
-xcopy /E /I gstack "%USERPROFILE%\.augment\commands\gstack"
-```
-
-**Workspace-level install** (available only in one project):
-
-PowerShell:
-```powershell
-Copy-Item -Recurse gstack "C:\path\to\your\project\.augment\commands\"
-```
-
-Command Prompt:
-```cmd
-xcopy /E /I gstack "C:\path\to\your\project\.augment\commands\gstack"
-```
-
-If the `.augment\commands\` directory does not yet exist, create it first:
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.augment\commands"
-```
-
----
-
-User commands take precedence over workspace commands when names conflict.
-
-In either case, add to `.gitignore` in the target project:
+Add to the target project's `.gitignore`:
 ```
 .augment/features/
+.augment/freeze-dir.txt
+.augment/confluence-parent.txt
 ```
 
-Verify (all platforms):
-```bash
-auggie command list
-```
-Expected output includes: `gstack:autoplan`, `gstack:careful`, `gstack:cso`, `gstack:document`, `gstack:document-release`, `gstack:freeze`, `gstack:guard`, `gstack:investigate`, `gstack:office-hours`, `gstack:plan-ceo-review`, `gstack:plan-eng-review`, `gstack:qa`, `gstack:retro`, `gstack:review`, `gstack:ship`, `gstack:unfreeze`
+Verify: `auggie command list` → expect `gstack:office-hours`, `gstack:spec`, `gstack:plan-ceo-review`, `gstack:plan-eng-review`, `gstack:plan-design-review`, `gstack:plan-devex-review`, `gstack:autoplan`, `gstack:review`, `gstack:investigate`, `gstack:qa`, `gstack:qa-only`, `gstack:cso`, `gstack:devex-review`, `gstack:learn`, `gstack:ship`, `gstack:document-release`, `gstack:document-generate`, `gstack:retro`, `gstack:document`, `gstack:context-save`, `gstack:context-restore`, `gstack:careful`, `gstack:freeze`, `gstack:guard`, `gstack:unfreeze`.
 
 ---
 
 ## How it works
 
-Every command writes a structured markdown file to `.augment/features/<JIRA-KEY>/`.
-Commands are independent — run them in any order — and each one reads whatever
-already exists in the folder for context.
+Every command writes a structured artifact to `.augment/features/<JIRA-KEY>/`. Commands are independent — run them in any order — and each reads whatever already exists in the folder. Findings compound: an unresolved critical from `review.md` stays alive in `qa` and gates `ship`.
 
 ```
-.augment/features/
-└── JIRA-999/
-    ├── office-hours.md        ← written by gstack:office-hours
-    ├── plan-ceo-review.md     ← written by gstack:plan-ceo-review
-    ├── plan-eng-review.md     ← written by gstack:plan-eng-review
-    ├── test-plan.md           ← written by gstack:plan-eng-review, read by gstack:qa
-    ├── review.md              ← written by gstack:review, read by gstack:ship
-    ├── investigate.md         ← written by gstack:investigate (appended each run)
-    ├── qa-report.md           ← written by gstack:qa
-    ├── cso-report.md          ← written by gstack:cso
-    ├── ship.md                ← written by gstack:ship
-    ├── document-release.md    ← written by gstack:document-release
-    └── retro.md               ← written by gstack:retro
+.augment/features/JIRA-999/
+├── office-hours.md        design doc (office-hours)
+├── spec.md                backlog-ready spec (spec)
+├── plan-ceo-review.md     scope + 11-section review (plan-ceo-review)
+├── plan-eng-review.md     architecture + findings (plan-eng-review)
+├── test-plan.md           consumed by qa (plan-eng-review)
+├── plan-design-review.md  7-pass design review (plan-design-review)
+├── plan-devex-review.md   DX plan review (plan-devex-review)
+├── autoplan.md            pipeline gate package (autoplan)
+├── review.md              diff review, ship gate (review)
+├── investigate.md         appended per investigation (investigate)
+├── qa-report.md + qa-baseline.json    (qa / qa-only)
+├── cso-report.md          security audit (cso)
+├── devex-report.md        measured DX audit (devex-review)
+├── ship.md                ship record (ship)
+├── document-release.md    doc sync record (document-release)
+├── retro.md               retrospective (retro)
+└── context.md             session checkpoint (context-save/restore)
 ```
 
-`gstack:document` reads the whole folder and upserts a single Confluence page —
-one page per feature, updated every time you run it.
+Project-level (not per-ticket): `.augment/learnings.md` (gstack:learn).
+
+`gstack:document` reads the whole folder and upserts ONE Confluence page per feature — the only command that writes outside the repo.
+
+---
+
+## Automation contract (what makes v2 cron-able)
+
+Every command runs to completion without waiting for input. At a decision gate:
+
+- **Interactive session + high-stakes decision** (irreversible, scope-changing) → it asks, one issue per question, with a recommendation and why.
+- **Unattended** (cron, `auggie --print`, or `auto` appended to the arguments) → it takes the documented default and records every choice in a `## Decisions made without you` section, plus `## Open questions` for what genuinely needs you.
+
+Never done unattended: expanding/cutting scope silently, posting to Jira/Confluence, destructive git operations, deciding User Challenges (when the review concludes your stated direction itself should change).
+
+Two commands lean interactive by design: `office-hours` (the forcing questions ARE the value — unattended it produces a clearly-marked hypothesis doc) and `spec` (unattended it marks answers EVIDENCED/ASSUMED and emits `DRAFT-UNVALIDATED`).
+
+### Cron examples
+
+```bash
+# Nightly: pre-bake the hypothesis design doc + spec for tomorrow's ticket
+auggie --print "command gstack:office-hours JIRA-999 auto"
+auggie --print "command gstack:spec JIRA-999 auto"
+
+# Nightly: full review pipeline on the current branch's ticket
+auggie --print "command gstack:autoplan JIRA-999"
+
+# Weekly: deep security audit + DX regression check + team retro
+auggie --print "command gstack:cso JIRA-000 --comprehensive"
+auggie --print "command gstack:devex-review JIRA-000"
+auggie --print "command gstack:retro JIRA-000 --window 7d"
+```
+
+(Adjust invocation syntax to your auggie version — `auggie command <name> <args>` also works.)
 
 ---
 
@@ -104,103 +106,73 @@ one page per feature, updated every time you run it.
 
 | Command | What it does |
 |---------|-------------|
-| `/gstack:office-hours JIRA-999` | YC-style reframe. Six forcing questions. Writes `office-hours.md`. |
-| `/gstack:plan-ceo-review JIRA-999` | Scope modes, 10-section review, risks. Writes `plan-ceo-review.md`. |
-| `/gstack:plan-eng-review JIRA-999` | Architecture diagrams, hard questions, test plan. Writes `plan-eng-review.md` + `test-plan.md`. |
-| `/gstack:autoplan JIRA-999` | Runs CEO → Eng automatically, taste gate at end. Writes all three plan files. |
+| `/gstack:office-hours <KEY>` | YC office hours: six forcing questions, premise challenge, alternatives → design doc. |
+| `/gstack:spec <KEY>` | Principal-engineer interrogation → backlog-ready spec, zero design decisions left. |
+| `/gstack:plan-ceo-review <KEY>` | Scope modes, premise challenge, 11-section deep review, failure-mode registries. |
+| `/gstack:plan-eng-review <KEY>` | Scope challenge, architecture, full test tracing + coverage diagram → `test-plan.md`. |
+| `/gstack:plan-design-review <KEY>` | 7 design passes, 0-10 ratings, AI-slop blacklist, state coverage. |
+| `/gstack:plan-devex-review <KEY>` | 8 DX passes, persona, TTHW tiers, developer journey map. |
+| `/gstack:autoplan <KEY>` | Whole pipeline (CEO → Design → Eng → DX) with principled auto-decisions + one final gate. |
 
 ### Implementation (Jira key as label)
 
 | Command | What it does |
 |---------|-------------|
-| `/gstack:review JIRA-999` | Staff engineer review of `git diff`. Auto-fixes obvious bugs, flags ambiguous ones. Writes `review.md`. |
-| `/gstack:investigate JIRA-999 <symptom>` | Root cause debugger. Iron Law: no fix without diagnosis. Appends to `investigate.md`. |
-| `/gstack:qa JIRA-999` | Tests against `test-plan.md`. Fixes bugs, generates regression tests. Writes `qa-report.md`. |
-| `/gstack:cso JIRA-999` | OWASP Top 10 + STRIDE. 8/10 confidence gate. Writes `cso-report.md`. |
+| `/gstack:review <KEY>` | Staff-engineer diff review: critical pass, specialists, red team, fix-first. |
+| `/gstack:investigate <KEY> <symptom>` | Root-cause debugging. Iron Law: no fix without confirmed cause. 3-strike rule. |
+| `/gstack:qa <KEY>` | Test → fix → verify against `test-plan.md`. Health score, regression baseline. |
+| `/gstack:qa-only <KEY>` | Same QA, report-only — changes nothing, writes repro tests only. |
+| `/gstack:cso <KEY>` | Security audit: attack surface, secrets archaeology, OWASP Top 10, STRIDE, 8/10 confidence gate. |
+| `/gstack:devex-review <KEY>` | Measured DX audit: hello-world run timed, error gallery, boomerang comparison. |
+| `/gstack:learn [add\|show\|search\|prune]` | Project learnings that compound across tickets. |
 
-### Shipping
-
-| Command | What it does |
-|---------|-------------|
-| `/gstack:ship JIRA-999` | Reads review gate from folder. Sync, test, coverage audit, push, open PR. Writes `ship.md`. |
-| `/gstack:document-release JIRA-999` | Updates all project docs. Writes `document-release.md`. |
-| `/gstack:retro JIRA-999` | Git history retro scoped to feature. Plan vs reality, per-person. Writes `retro.md`. |
-
-### Documentation
+### Shipping & docs
 
 | Command | What it does |
 |---------|-------------|
-| `/gstack:document JIRA-999` | Reads entire feature folder. Synthesises narrative. Upserts Confluence page under J's notebook. |
+| `/gstack:ship <KEY>` | Gates → merge base → tests → coverage audit → plan completion → bisectable commits → PR. |
+| `/gstack:document-release <KEY>` | Post-ship doc sync: Diataxis coverage map, per-file audit, CHANGELOG voice. |
+| `/gstack:document-generate <KEY> <mode> <topic>` | Generate a missing doc in one Diataxis mode. |
+| `/gstack:retro <KEY> [--window 7d]` | Git-history retro: metrics, sessions, hotspots, plan-vs-reality, per-person feedback. |
+| `/gstack:document <KEY>` | Synthesize the feature folder → upsert ONE Confluence page. |
 
-### Safety (no Jira key needed)
+### Session & safety (no Jira fetch)
 
 | Command | What it does |
 |---------|-------------|
-| `/gstack:careful` | Warns before destructive commands for this session. |
-| `/gstack:freeze <path>` | Locks file edits to one directory. |
+| `/gstack:context-save <KEY>` / `context-restore <KEY>` | Lossless session checkpoint / resume. |
+| `/gstack:careful` | Confirm before destructive commands. |
+| `/gstack:freeze <path>` / `unfreeze` | Lock / unlock edits to one directory. |
 | `/gstack:guard <path>` | careful + freeze combined. |
-| `/gstack:unfreeze` | Removes the edit lock. |
 
 ---
 
-## Jira integration
+## Jira & Confluence integration
 
-Commands in the planning phase (office-hours, plan-ceo-review, plan-eng-review,
-autoplan) fetch the Jira issue at the start to read acceptance criteria, description,
-and linked Confluence pages.
+Planning commands (office-hours, spec, plan-*-review, autoplan) fetch the Jira issue at the start: description, acceptance criteria, comments, links. All other commands use the key as label and folder name only.
 
-All other commands use the key as a label and folder name only — no Jira calls.
-
-**Nothing is ever posted to Jira automatically.** The Confluence page is the only
-external write, and only when you explicitly run `gstack:document`.
-
----
-
-## gstack:document — the Confluence upsert
-
-`gstack:document JIRA-999` reads every file in `.augment/features/JIRA-999/` and writes
-a single clean narrative page to Confluence:
-
-- **Parent page:** prompted at runtime — you provide the Confluence parent page URL when the command runs
-- **Title:** `JIRA-999 — <Jira summary>`
-- **Behaviour:** upsert — creates on first run, updates on every subsequent run
-- **Content:** a readable narrative covering what was built, why, key decisions, current state, open questions, and learnings — synthesised from the folder, not pasted raw
-
-Run it at any stage — after planning for a progress snapshot, after shipping for a
-post-implementation record, after retro for a complete feature history.
+**Nothing is ever posted to Jira automatically.** `spec` may offer (interactive, explicit yes only) to post the finished spec to the ticket. The Confluence page is the only other external write, and only when you run `gstack:document`.
 
 ---
 
 ## Typical sprint
 
 ```bash
-# Start
-auggie command gstack:office-hours JIRA-999
-
-# Plan
-auggie command gstack:plan-eng-review JIRA-999
-
-# After building
-auggie command gstack:review JIRA-999
-auggie command gstack:qa JIRA-999
-
-# Ship
-auggie command gstack:ship JIRA-999
-
-# Document
-auggie command gstack:document JIRA-999   # → Confluence page upserted
+auggie command gstack:office-hours JIRA-999      # frame it
+auggie command gstack:autoplan JIRA-999          # full review pipeline (or the plan-* commands individually)
+# ... build ...
+auggie command gstack:review JIRA-999            # pre-landing review
+auggie command gstack:qa JIRA-999                # test → fix → verify
+auggie command gstack:ship JIRA-999              # gates, commits, PR
+auggie command gstack:document JIRA-999          # Confluence page
+auggie command gstack:retro JIRA-999             # what we learned
 ```
 
 ---
 
 ## What is NOT ported
 
-Browser-dependent gstack commands require Playwright and cannot run as Augment commands:
-`/browse`, live `/qa`, `/design-shotgun`, `/design-html`, `/design-consultation`,
-`/design-review`, `/benchmark`, `/canary`, `/land-and-deploy`, `/open-gstack-browser`,
-`/pair-agent`, `/codex`.
-
----
+Browser/binary-dependent gstack skills can't run as Augment commands: `/browse`, live browser `/qa`, `/design-shotgun`, `/design-html`, `/design-consultation`, `/design-review` (visual), `/benchmark`, `/canary`, `/land-and-deploy`, `/pair-agent`, `/codex`, `/open-gstack-browser`. Where the originals used Codex or visual mockups, v2 substitutes fresh-context subagents / adversarial self-passes and HTML wireframe sketches.
 
 ## License
 
