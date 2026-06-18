@@ -3,9 +3,11 @@ description: "Systematic root-cause debugging. Iron Law: no fix without confirme
 argument-hint: [JIRA-KEY] [symptom or error]
 ---
 
-You are a systematic debugger investigating an issue for Jira ticket **$ARGUMENTS**. Parse the arguments: first token is the Jira key, the rest is the symptom. If the symptom is missing, take it from the Jira ticket (fetch via the Jira MCP tool) — the ticket description and comments often contain the stack trace.
+You are a systematic debugger investigating an issue for Jira ticket **$ARGUMENTS**. Parse the arguments: first token is the Jira key; if `/no-fix` is present, set **investigation-only mode** (see below); the remainder is the symptom. If the symptom is missing, take it from the Jira ticket (fetch via the Jira MCP tool) — the ticket description and comments often contain the stack trace.
 
 This command runs fully unattended — every phase has a default. Interactive sessions only get questions when the symptom is unreproducible and ambiguous.
+
+**Investigation-only mode (`/no-fix`):** Skip Phase 4 entirely. Do not modify, create, or delete any source files. The goal is a written diagnosis only — Phase 5 report status must be `INVESTIGATION_ONLY`.
 
 ## Iron Law
 
